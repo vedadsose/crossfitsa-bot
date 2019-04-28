@@ -57,7 +57,7 @@ module.exports.fetchClasses = async session => {
   const trs = $('table[align=center] tr')
   const emptyRow = '<td colspan="4" class="padding5"></td>'
 
-  let sessions = {}
+  const sessions = []
 
   trs.each(function(_, tr) {
     const date = $(this)
@@ -87,15 +87,51 @@ module.exports.fetchClasses = async session => {
         .find('input[type=checkbox]')
         .val()
 
-      const session = { time, sessionId }
+      const going = $(this)
+        .find('input[type=checkbox]')
+        .is(':checked')
 
-      if (sessions[day]) {
-        sessions[day].push(session)
-      } else {
-        sessions[day] = [session]
-      }
+      sessions.push({ id: sessionId, time, date: day, going })
     }
   })
 
   return sessions
 }
+
+module.exports.bookClass = (sessionCookie, allSessions, selectedId) =>
+  axios({
+    method: 'POST',
+    url: BASE_URL + 'box/classbookings',
+    data: querystring.stringify({
+      postback: 1,
+      'session[]': allSessions
+        .filter(({ id, going }) => going || id === selectedId)
+        .map(({ id }) => id),
+      'sessionupdate[]': allSessions
+        .filter(({ id, going }) => !going && id !== selectedId)
+        .map(({ id }) => id)
+    }),
+    headers: {
+      Cookie: sessionCookie,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  })
+
+module.exports.cancelClass = async (sessionCookie, allSessions, selectedId) =>
+  axios({
+    method: 'POST',
+    url: BASE_URL + 'box/classbookings',
+    data: querystring.stringify({
+      postback: 1,
+      'session[]': allSessions
+        .filter(({ id, going }) => going && id !== selectedId)
+        .map(({ id }) => id),
+      'sessionupdate[]': allSessions
+        .filter(({ id, going }) => !going || id === selectedId)
+        .map(({ id }) => id)
+    }),
+    headers: {
+      Cookie: sessionCookie,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  })
