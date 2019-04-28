@@ -1,7 +1,8 @@
 require('dotenv').config()
 const BootBot = require('bootbot')
 
-const { fetchNextWOD, logInUser } = require('./crawler')
+const { fetchNextWOD, fetchClasses, logInUser } = require('./crawler')
+const db = require('./db')
 
 const bot = new BootBot({
   accessToken: process.env.ACCESS_TOKEN,
@@ -10,7 +11,7 @@ const bot = new BootBot({
 })
 
 // Setup user account
-bot.hear('setup', async (_, chat) => {
+bot.hear('setup', async (payload, chat) => {
   const askEmail = convo => {
     convo.ask(`What's your account email?`, (payload, convo) => {
       const text = payload.message.text
@@ -37,6 +38,8 @@ bot.hear('setup', async (_, chat) => {
 
     try {
       await logInUser({ email, password })
+
+      db.createUser({ id: payload.sender.id, email, password })
       convo.say('Authorized')
     } catch (error) {
       convo.say(error.toString())
@@ -48,10 +51,39 @@ bot.hear('setup', async (_, chat) => {
   })
 })
 
-// Find next WOD
+// Fetch next classes
+bot.hear(['classes'], async (payload, chat) => {
+  const user = db.findUser(payload.sender.id)
+  let session
+
+  try {
+    session = await logInUser(user)
+  } catch (error) {
+    chat.say(error.toString())
+  }
+
+  const sessions = await fetchClasses(session)
+
+  const message =
+    `To book reply with "book NUMBER", or to unbook reply with "unbook NUMBER":\n\n` +
+    Object.keys(sessions)
+      .map(date => {
+        return (
+          date +
+          '\n' +
+          sessions[date]
+            .map(({ sessionId, time }) => `${sessionId}) ${time}`)
+            .join('\n')
+        )
+      })
+      .join('\n\n')
+
+  chat.say(message)
+})
+
+// Fetch next WOD
 bot.hear(['WOD', 'next'], async (_, chat) => {
   const wod = await fetchNextWOD()
-  console.log({ wod })
   chat.say(wod)
 })
 
