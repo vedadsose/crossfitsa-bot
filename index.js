@@ -58,7 +58,6 @@ bot.hear('setup', async (payload, chat) => {
   })
 })
 
-// TEMP
 const getSession = async (id, chat) => {
   const user = db.findUser(id)
 
@@ -68,7 +67,6 @@ const getSession = async (id, chat) => {
     chat.say(error.toString())
   }
 }
-// TEMP
 
 // Fetch next classes
 bot.hear(['classes'], async (payload, chat) => {
